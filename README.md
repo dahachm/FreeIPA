@@ -1,171 +1,49 @@
 # FreeIPA
 
-## Установка и настройка домена
-
 Домен: astra-net.domain.
 Сервер: astra-1.astra-net.domain
-Клиент-1: astra.astra-net.domain
-Клиент-2: astra-2.astra-net.domain
+Клиент-1: astra-2.astra-net.domain
 
-### Настройка домена astra-net.domain
+### Установка статических IP
 
-1. Настройка сервера **astra-net.domain** подсети 192.168.12.
+Перейти в "Панель управления" -> "Сеть" -> "Сетевые соединения", выбрать нужные интерфейс и перейти во вкладку "Настройки IP4". Задать следующие параметры:
 
-  Установить пакеты **resolvconf, bind9**:
+![Настрйока статичесих адресов](https://user-images.githubusercontent.com/40645030/120633273-a1838900-c472-11eb-95e8-e2f88aa555ac.png)
 
-  ```
-  $ sudo apt install resolvconf bind9 -y
-  ```
+в качестве первого DNS сервера должен быть указан контроллер нового домена.
 
-  В конфигурационный файл */etc/bind/named.conf.local* необходимо добавить следующие строк:
-  
-  ```
-  zone "astra-net.domain" {
-    type master;
-    file "/var/cache/bind/db.astra-net.domain";
-  };
-  
-  zone "12.168.192.in-addr.arpa" {
-    type master;
-    file "/var/cache/bind/db.192.168.12";
-  };
-  ```
-  
-  Создать файл */var/cache/bind/db.astra-net.domain* со следующим содержимым:
-  
-  ```
-  ;
-  ; BIND data file for astra-net.domain zone
-  ;
-  $TTL 604800
-  @ IN  SOA astra-net.domain. root.astra-net.domain. (
-            2021060100  ; Serial
-            604800      ; Refresh
-            86400       ; Retry
-            2419200     ; Expire
-            604800 )    ; Negative Cache TTL
-  ;
-  @ IN  NS  astra-1.astra-net.domain.
-  @ IN  A   192.168.12.5
-  
-  astra-1   IN    A     192.168.12.5
-  astra     IN    A     192.168.12.4
-  astra-2   IN    A     192.168.12.6
-  ```
-  
-  Создать файл */var/cache/bind/db.192.168.12* со следующим содержимым:
-  
-  ```
-  ;
-  ; BIND reverse data file for astra-net.domain
-  ;
-  $TTL    86400
-  @       IN        SOA astra-net.domain. root.astra-net.domain. (
-                    2021060100  ; Serial
-                    604800      ; Refresh
-                    86400       ; Retry
-                    2419200     ; Expire
-                    86400 )     ; Negative Cache TTL
-  ;
-  @       IN        NS      astra-1.astra-net.domain.
-  
-  5       IN        PTR     astra-1.astra-net.domain.
-  4       IN        PTR     astra.astra-net.domain.
-  6       IN        PTR     astra-2.astra-net.domain.
-  ```
-  
-  Проверить конфигурационный файл на наличие синтаксических ошибок:
-  
-  ```
-  sudo named-checkconf /etc/bind/named.conf.local
-  ```
-  
-  Если вывод команды пустой, то ошибок не обнаружено.
-  
-  
-  Перезапустить службу **bind9** для того, чтобы новые настройки применились:
-  
-  ```
-  $ sudo systemctl restart bind9
-  ```
-  
-  Проверить статус запуска.
-  
-  ```
-  $ sudo systemctl status bind9
-  ```
-  
-  ![bind9 status](https://user-images.githubusercontent.com/40645030/120453228-8560e880-c39b-11eb-8a90-5f3ef5f3b067.png)
+Чтобы настрйоки вступили в силу, необходимо **перезагрузить машину**.
 
-  
-  Проверим, резолвится ли доменное имя:
-  
-  ```
-  $ nslookup astra-1.astra-net.domain
-  $ nslookup astra.astra-net.domain
-  ```
-  
-  ![Результат nslookup 1](https://user-images.githubusercontent.com/40645030/120453948-22238600-c39c-11eb-9a13-1dd4753b0848.png)
-  
-  И в обратную сторону:
-  
-  ```
-  $ nslookup 192.168.12.5
-  $ nslookup 192.168.12.4
-  ```
-  
-  ![Результат nslookup 2](https://user-images.githubusercontent.com/40645030/120453978-28b1fd80-c39c-11eb-9b2b-7fcb6c92906a.png)
-  
-  Добавить запись в */etc/hosts*:
-  
-  ```
-  192.168.12.5  astra-1.astra-net.domain astra-1
-  ```
-  
-  Установить новый *hostname*:
-  
-  ```
-  $ hostnamectl set-hostname astra-1.astra-net.domain
-  ```
+### Включение IPv6 
 
-**2. Настройка клиентов**
-  
-  Добавить в файл */etc/resolvconf/resolv.conf.d/head* следующие строки:
-  
-  ```
-  domain astra-net.domain
-  search astra-net.domain
-  nameserver 192.168.12.5
-  ```
-  
-  Обновить */etc/resolv.conf*:
-  
-  ```
-  $ sudo resolvconf -u
-  ```
-  
-  Установить новый *hostname* на клиенте *astra*:
-  
-  ```
-  $ hostnamectl set-hostname astra.astra-net.domain
-  ```
-  
-  И на клиенте *astra-2*:
-  
-  ```
-  $ hostnamectl set-hostname astra-2.astra-net.domain
-  ```
-  
-  Проверим корректность резолва:
-  
-  ![Результат nslookup 3](https://user-images.githubusercontent.com/40645030/120457276-fd7cdd80-c39e-11eb-9c48-f54a91aed70a.png)
+Для включения протокола IPv6 следует:
 
+  1. Убедиться, что IPv6 не отключен в файле параметров загрузки /etc/default/grub.
+   
+  Для этого найти в файле строку параметров загрузчика GRUB_CMDLINE_LINUX и убедиться, что там не указан параметр "ipv6.disable=1", если такой параметр указан - убрать его.
+
+  2. Убедиться, что IPv6 не отключен в файле параметров сетевых служб /etc/sysctl.conf, и в файлах /etc/sysctl.d/* (в частности, в файле /etc/sysctl.d/999-astra.conf).
+    
+  Т.е., убедиться, что в файле отсутствуют строки вида
   
+  ```
+  net.ipv6.conf.all.disable_ipv6 = 1
+  net.ipv6.conf.default.disable_ipv6 = 1
+  net.ipv6.conf.lo.disable_ipv6 = 1
+  ```
+  
+  и, если таковые строки имеются, удалить их или закомментировать.
 
-### Устанвока пакетов
-
-Сервер
+  3. Если изменения были внесены в файл /etc/default/grub, то следует обновить загрузчик:
+    
+  ```
+  $ sudo update-grub
+  ```
+  
+  И перезагрузить машину.
+  
+### Установка пакетов
 
 ```
-$ sudo apt install 
+$ sudo apt install astra-freeipa-server 
 ```
